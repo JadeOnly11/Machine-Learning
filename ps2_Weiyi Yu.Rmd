@@ -1,0 +1,131 @@
+---
+title: "HW2"
+author: "Weiyi Yu"
+date: "2022-10-01"
+output: html_document
+---
+Group Member: Weiyi Yu, Zachary Guan, William Kniesner, Abby Peng
+#1).
+```{r}
+# a).
+# read data on spending for each machine id (household)
+browser_spend <- read.csv("D:/YWY/University_of_Southern_California/Learning_Materials/Machine_Learning/data/data/browser-totalspend.csv") # machine id, spending
+yspend <- browser_spend$spend
+head(yspend)
+# read data on browsing history
+web <- read.csv("D:/YWY/University_of_Southern_California/Learning_Materials/Machine_Learning/data/data/browser-domains.csv")
+head(web)
+# the browser-sites.txt file matches website names to the website ids
+sitenames <- scan("D:/YWY/University_of_Southern_California/Learning_Materials/Machine_Learning/data/data/browser-sites.txt", what="character")  #read website names
+web$site <- factor(web$site, levels=1:length(sitenames), labels=sitenames) # relabel sites with names, turn into factor
+web$id <- factor(web$id, levels=1:length(unique(web$id))) # turn into factor
+# compute total visits per machine and then % of time on each site using tapply(), where tapply(a,b,c) outputs c(a) for every level of factor b.
+machinetotals <- as.vector(tapply(web$visits,web$id,sum)) 
+visitpercent <- 100*web$visits/machinetotals[web$id]
+head(visitpercent)
+
+library(Matrix) # needed for sparseMatrix function
+xweb <- sparseMatrix(i=as.numeric(web$id), j=as.numeric(web$site), x=visitpercent, dims=c(nlevels(web$id),nlevels(web$site)), dimnames=list(id=levels(web$id), site=levels(web$site)))
+dim(xweb) # accords with our description of the dataset
+head(xweb[1, xweb[1,]!=0]) # sites visited by household 1
+#run lasso regression
+library(gamlr)
+# compute lasso regularization path
+set.seed(0)
+cv.lasso_model1 <- cv.gamlr(xweb, log(yspend), verb=TRUE)
+# Report the indices of the nonzero coefficients
+non0_coef_indices1 = which(coef(cv.lasso_model1) != 0)
+non0_coef_indices1
+
+
+#b)
+#Redraw a single “bootstrap” sample from yspend and xweb
+n = length(yspend)
+set.seed(0)
+#Get One Bootstrap Sample
+boot_indices = sample.int(n, replace=TRUE)
+boot_yspend_sample = yspend[boot_indices]
+boot_xweb_sample = xweb[boot_indices,]
+head(boot_xweb_sample[1,boot_xweb_sample[1,]!=0])
+dim(boot_xweb_sample)  
+
+# i.)
+#run lasso regression
+library(gamlr)
+# compute lasso regularization path
+set.seed(0)
+cv.lasso_model2 <- cv.gamlr(boot_xweb_sample, log(boot_yspend_sample), verb=TRUE)
+# Report the indices of the nonzero coefficients
+non0_coef_indices2 = which(coef(cv.lasso_model2) != 0) 
+non0_coef_indices2
+
+#ii.)
+OnlyBoot_non0_coef_indices3 = which(coef(cv.lasso_model2) != 0 & coef(cv.lasso_model1) == 0)
+OnlyBoot_non0_coef_indices3
+
+#iii.)
+OnlyOri_non0_coef_indices4 = which(coef(cv.lasso_model1) != 0 & coef(cv.lasso_model2) == 0)
+OnlyOri_non0_coef_indices4
+
+#iv.)
+intersect(non0_coef_indices1,non0_coef_indices2)
+
+
+#c.)
+# Based on these results, the set of nonzero coefficients selected by the lasso is not stable across random draws of the data, because the intersect is only a small part of the non-zero coefficient of the original sample. 
+```
+
+
+#2.)
+```{r}
+#a).
+set.seed(0)
+estimation_sample = sample(nrow(xweb),0.8*nrow(xweb),replace=FALSE)
+cv.lasso_model = cv.gamlr(xweb[estimation_sample,], log(yspend[estimation_sample]), verb=TRUE)
+plot(cv.lasso_model) #The plot gives cross-validation OOS error estimates
+
+#b).
+#compute the in-sample prediction error of the cross-validated lasso
+predicted_insample_logyspend = predict(cv.lasso_model, xweb[estimation_sample,], select="min")
+IS_difference_per_id = log(yspend[estimation_sample])-predicted_insample_logyspend
+IS_diff_per_id_squared = IS_difference_per_id^2
+
+IS_difference_squared = sum(IS_diff_per_id_squared)
+IS_difference_squared
+
+in_sample_prediction_error = IS_difference_squared/length(estimation_sample)
+in_sample_prediction_error
+
+#c.)compute the predicted value of log(yspend) at each Xn+1,...,Xn+m in the holdout sample and out-of-sample prediction error
+predicted_holdout_logyspend = predict(cv.lasso_model, xweb[-estimation_sample,], select="min")
+OOS_difference_per_id = log(yspend[-estimation_sample])-predicted_holdout_logyspend
+OOS_difference_per_id_squared = OOS_difference_per_id^2
+OOS_difference_squared = sum(OOS_difference_per_id_squared)
+OOS_prediction_error = OOS_difference_squared/(length(yspend)-length(estimation_sample))
+OOS_prediction_error
+#compare to b) it is very similar
+
+```
+
+
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

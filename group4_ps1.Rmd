@@ -1,0 +1,127 @@
+---
+title: "HW1"
+author: "Weiyi Yu"
+date: "2022-09-14"
+output: html_document
+---
+Group Member: Weiyi Yu, Zachary Guan, William Kniesner, Abby Peng
+```{r}
+set.seed(0)
+#1.）
+#read the document
+sample = read.csv("D:/YWY/University_of_Southern_California/Learning_Materials/Machine_Learning/ps1_Weiyi Yu/pickup.csv")
+dim(sample)
+head(sample)
+
+#a.) Compute the correlation between miles and price in this sample.
+cor(sample$miles,sample$price,method = 'pearson') 
+
+#b.) Suppose this data was formed by randomly taking a small sample from all of the Craigslist listings available at a particular time. The sample correlation in part (a) is an estimate of the correlation in this larger population. Form a 95% CI for this population correlation using the bootstrap (you can use either of the methods from class).
+#Get Bootstrap Correlation
+B = 500
+bootstrap_correlations = rep(0,B)
+for (b in 1:B){
+  boot_sample_indices = sample.int(46, replace=TRUE)
+  boot_sample = sample[boot_sample_indices,]
+  bootstrap_correlations[b] = cor(boot_sample$miles,boot_sample$price,method = 'pearson')
+}
+#Get CI
+cor(sample$miles,sample$price)+c(-1.96,1.96)*sd(bootstrap_correlations)
+
+#2.)
+#read the document
+oj = read.csv("D:/YWY/University_of_Southern_California/Learning_Materials/Machine_Learning/ps1_Weiyi Yu/oj.csv")
+dim(oj)
+head(oj)
+#Original Model
+OLS_model0 <- glm(log(oj$sales) ~ log(oj$price) + oj$brand, data=oj)
+estimate1 = (exp(coef(OLS_model0)['oj$brandtropicana']) - 1) * 100
+#Bootstrap
+B = 1000
+n = nrow(oj)
+bootstrap_percent_change = rep(0, B)
+for (b in 1:B) {
+  boot_indices = sample.int(n, replace=TRUE)
+  boot_sample = oj[boot_indices,]
+  OLS_model = glm(log(sales)~log(price)+brand, data=boot_sample)
+  bootstrap_percent_change[b] = (exp(coef(OLS_model)['brandtropicana'])-1)*100
+}
+#Get CI
+estimate1+c(-1.96,1.96)*sd(bootstrap_percent_change) 
+
+
+#3.)
+B = 1000
+means = rep(0,B)
+se = rep(0,B)
+lower_endpoint = rep(0,B)
+upper_endpoint = rep(0,B)
+
+for (n in c(10,50,200)){
+  for (b in 1:B) {
+    sample = (rpois(n, lambda=5))
+    means[b] = mean(sample)
+    lower_endpoint[b] = mean(sample)-2*sd(sample)/sqrt(n)
+    upper_endpoint[b] = mean(sample)+2*sd(sample)/sqrt(n)
+  }
+#a.)histogram of the sample mean
+  par(mfrow=c(1,1))
+  hist(means,freq=FALSE,xlim=range(4,6),main=paste("histogram of means,n=",n))
+#b.)histogram of the lower&higher endpoint of the 95% CI
+  par(mfrow=c(1,1))
+  hist(lower_endpoint,freq=FALSE,main=paste("histogram of lower endpoint,n=",n))
+  par(mfrow=c(1,1))
+  hist(upper_endpoint,freq=FALSE,main=paste("histogram of upper endpoint,n=",n))
+#c.)Calculate the proportion of the B CIs that contain the population mean
+  between_CI = sum(upper_endpoint>=5&lower_endpoint<=5,na.rm = TRUE)
+  print(paste("For n=",n,",the proportion of the B CIs that contain the population mean is",between_CI/B))
+}
+#d.)repeat parts (b) and (c) using a bootstrap CI，B = 100
+B = 100
+sample = (rpois(n, lambda=5))
+means = rep(0,B)
+se = rep(0,B)
+lower_endpoint = rep(0,B)
+upper_endpoint = rep(0,B)
+
+for (n in c(10,50,200)){
+  for (b in 1:B) {
+    boot_sample_indices = sample.int(n, replace=TRUE)
+    boot_sample = sample[boot_sample_indices]
+    means[b] = mean(boot_sample)
+    lower_endpoint[b] = mean(boot_sample)-2*sd(boot_sample)/sqrt(n)
+    upper_endpoint[b] = mean(boot_sample)+2*sd(boot_sample)/sqrt(n)
+  }
+#histogram of the lower&higher endpoint of the 95% CI
+  par(mfrow=c(1,1))
+  hist(lower_endpoint,freq=FALSE,main=paste("histogram of lower endpoint,n=",n))
+  par(mfrow=c(1,1))
+  hist(upper_endpoint,freq=FALSE,main=paste("histogram of upper endpoint,n=",n))
+#Calculate the proportion of the B CIs that contain the population mean
+  between_CI = sum(upper_endpoint>=5&lower_endpoint<=5,na.rm = TRUE)
+  print(paste("For n=",n,",using Bootstrap we can get that the proportion of the B CIs that contain the population mean is",between_CI/B))
+}
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
